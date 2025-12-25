@@ -47,16 +47,6 @@ class mystring{
             }
             return temp;
         }
-        
-        int strcmp(const mystring& other) const{
-            int i = 0;
-            while(data[i]&&other.data[i]){
-                if(data[i]!=other.data[i])
-                    return data[i]-other.data[i];
-                i++;
-            }
-            return data[i]-other.data[i];
-        } 
 
         mystring& insert(int loc, const mystring& str) {
             if (loc < 0 || loc > len) 
@@ -113,10 +103,16 @@ class mystring{
         mystring& erase(int loc, int num){
             if(num<0|| loc<0 || loc > len) return *this;
 
+            
+            if(loc+num>len){
+                for(int i=loc;i<len;i++)
+                    data[i] = '\0';
+            }
+            else{
             for (int i = loc + num; i < len; i++) {
             data[i - num] = data[i];
             }
-
+        }
             len -= num;
             return *this;
         }
@@ -188,21 +184,45 @@ class mystring{
             if(i>=len || i<0) return '\0';
             else return data[i];
         }
+
+        int find(int find_from, mystring& str) const{
+            int i, j;
+            if(str.len==0) return -1;
+            for(i = find_from;i<len-str.len;i++){
+                for(j=0;j<str.len;j++){
+                    if(data[i+j]!=str.data[j]) break;
+                }
+                if(j==str.len) return i;
+            }
+            return -1;
+        }
+
+
+        int find(int find_from, const char* str) const{
+            mystring temp(str);
+            return find(find_from,temp);
+        }
+        int find(int find_from, char c) const{
+            mystring temp(c);
+            return find(find_from,temp);
+        }
+
+        int compare(const mystring& str) const{
+            for(int i=0;i<std::min(len,str.len);i++){
+                if(data[i]>str.data[i]) return 1;
+                else if(data[i]<str.data[i]) return -1;
+            }
+            if(len==str.len) return 0;
+            else if(len>str.len) return 1;
+            return -1;
+        }
+
 };
 
 
 int main(){
-    mystring str1("very long string");
-    mystring str2("<some string inserted between>");
-    str1.reserve(30);
+    mystring str1("abcde");
+    mystring str2("abc");
 
-    std::cout << "Capacity : " << str1.capacity() << std::endl;
-    std::cout << "String length : " << str1.strlen() << std::endl;
-    str1.print();
-
-    str1.insert(5, str2);
-    str1.print();
-    std::cout << "Capacity : " << str1.capacity() << std::endl;
-    std::cout << "String length : " << str1.strlen() << std::endl;
-    str1.print();
+    std::cout << "compare result:" << str1.compare(str2) << std::endl;
 }
