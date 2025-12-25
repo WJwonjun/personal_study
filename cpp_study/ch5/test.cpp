@@ -27,5 +27,4 @@ int main() {
 
     std::cout << "---------" << std::endl;
     A a1 = b.get_A();
-    // A& ref = b.a;
 }
