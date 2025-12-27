@@ -7,6 +7,11 @@ class mystring{
     int memory_capacity;
 
     public:
+        explicit mystring(int capacity){
+            data = new char[capacity];
+            len = 0;
+            memory_capacity = capacity;
+        }
         mystring(char c){
             len = 1;
             data = new char[len+1];
@@ -221,8 +226,5 @@ class mystring{
 
 
 int main(){
-    mystring str1("abcde");
-    mystring str2("abc");
-
-    std::cout << "compare result:" << str1.compare(str2) << std::endl;
+    mystring s(3);
 }
