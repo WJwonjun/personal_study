@@ -222,9 +222,23 @@ class mystring{
             return -1;
         }
 
+        bool operator==(mystring& str){
+            return !compare(str);
+        }
+
 };
 
 
-int main(){
-    mystring s(3);
+int main() {
+    mystring str1("a word");
+    mystring str2("sentence");
+    mystring str3("sentence");
+    if (str1 == str2)
+        std::cout << "str1 와 str2 같다." << std::endl;
+    else
+        std::cout << "st1 와 str2 는 다르다." << std::endl;
+    if (str2 == str3)
+        std::cout << "str2 와 str3 는 같다." << std::endl;
+    else
+        std::cout << "st2 와 str3 는 다르다" << std::endl;
 }
