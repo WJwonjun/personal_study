@@ -13,7 +13,8 @@ class Derived : public Base {
         std::string s;
     public:
         Derived() : s("파생"), Base() { std::cout << "파생 클래스" << std::endl; }
-        void what() { std::cout << s << std::endl; }
+        void what() override{ std::cout << s << std::endl; }
+        // 가상 함수를 오버라이드하고 있음을 알려줌.
 };
 
 int main() {
