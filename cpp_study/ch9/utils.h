@@ -92,12 +92,12 @@ class Cell{
     protected:
         int x,y;
         Table* table;
-        string data;
     public:
-        virtual string stringify();
-        virtual int to_numeric();
+        virtual string stringify() = 0; 
+        virtual int to_numeric() = 0;
 
-        Cell(string data, int x, int y, Table* table);
+        Cell(int x, int y, Table* table);
+        
 };
 
 class TxtTable: public Table{
@@ -122,6 +122,59 @@ class CSVTable: public Table{
         CSVTable(int row, int col);
         string print_table();
 };
+
+class StringCell: public Cell{
+    string data;
+
+    public:
+        string stringify();
+        int to_numeric();
+
+        StringCell(string data, int x, int y, Table* t);
+};
+
+class NumberCell: public Cell{
+    int data;
+
+    public:
+        string stringify();
+        int to_numeric();
+        NumberCell(int data, int x, int y, Table* t);
+};
+
+class DateCell: public Cell{
+    time_t data;
+
+    public:
+        string stringify();
+        int to_numeric();
+        DateCell(string s, int x, int y, Table* t);
+};
+
+class ExprCell : public Cell {
+    string data;
+    string* parsed_expr;
+    Vector exp_vec;
+    // 연산자 우선 순위를 반환합니다.
+    int precedence(char c);
+    // 수식을 분석합니다.
+    void parse_expression();
+    public:
+        ExprCell(string data, int x, int y, Table* t);
+        string stringify();
+        int to_numeric();
+};
+
+class Excel{
+    Table* current_table;
+
+    public:
+        Excel(int max_row, int max_col, int choice);
+
+        int parse_user_input(string s);
+        void command_line();
+};
+
 
 }
 

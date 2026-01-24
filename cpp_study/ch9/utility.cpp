@@ -5,6 +5,11 @@
 #include <string>
 
 namespace MyExcel {
+// 연산자 오버로딩 (friend 혹은 전역)
+std::ostream& operator<<(std::ostream& o, Table& table) {
+    o << table.print_table();
+    return o;
+}
 
 // --- Vector 구현 ---
 Vector::Vector(int n) : data(new string[n]), capacity(n), length(0) {}
@@ -62,9 +67,127 @@ bool NumStack::is_empty() { return current == &start; }
 NumStack::~NumStack() { while (!is_empty()) pop(); }
 
 // --- Cell 구현 ---
-Cell::Cell(string data, int x, int y, Table* table) : data(data), x(x), y(y), table(table) {}
-string Cell::stringify() { return data; }
-int Cell::to_numeric() { return 0; }
+Cell::Cell(int x, int y, Table* table) : x(x), y(y), table(table) {}
+
+
+StringCell::StringCell(string data, int x, int y, Table* t): data(data),Cell(x, y, t) {}
+string StringCell::stringify() { return data; }
+int StringCell::to_numeric() { return 0; }
+
+NumberCell::NumberCell(int data, int x, int y, Table* t): data(data), Cell(x, y, t) {}
+string NumberCell::stringify() { return to_string(data); }
+int NumberCell::to_numeric() { return data; }
+
+string DateCell::stringify() {
+char buf[50];
+tm temp;
+localtime_r(&data, &temp);
+strftime(buf, 50, "%F", &temp);
+return string(buf);
+}
+
+int DateCell::to_numeric() { return static_cast<int>(data); }
+DateCell::DateCell(string s, int x, int y, Table* t) : Cell(x, y, t) {
+// 입력받는 Date 형식은 항상 yyyy-mm-dd 꼴이라 가정한다.
+int year = atoi(s.c_str());
+int month = atoi(s.c_str() + 5);
+int day = atoi(s.c_str() + 8);
+tm timeinfo;
+timeinfo.tm_year = year - 1900;
+timeinfo.tm_mon = month - 1;
+timeinfo.tm_mday = day;
+timeinfo.tm_hour = 0;
+timeinfo.tm_min = 0;
+timeinfo.tm_sec = 0;
+data = mktime(&timeinfo);
+}
+ExprCell::ExprCell(string data, int x, int y, Table* t): data(data),Cell(x,y,t){
+    parse_expression();
+}
+int ExprCell::to_numeric() {
+double result = 0;
+NumStack stack;
+for (int i = 0; i < exp_vec.size(); i++) {
+string s = exp_vec[i];
+// 셀 일 경우
+if (isalpha(s[0])) {
+stack.push(table->to_numeric(s));
+}
+// 숫자 일 경우 (한 자리라 가정)
+else if (isdigit(s[0])) {
+stack.push(atoi(s.c_str()));
+} else {
+double y = stack.pop();
+double x = stack.pop();
+switch (s[0]) {
+case '+':
+stack.push(x + y);
+break;
+case '-':
+stack.push(x - y);
+break;
+case '*':
+stack.push(x * y);
+break;
+case '/':
+stack.push(x / y);
+break;
+}
+}
+}
+return stack.pop();
+}
+
+string ExprCell::stringify() {
+    return to_string(to_numeric());
+}
+int ExprCell::precedence(char c) {
+switch (c) {
+case '(':
+case '[':
+case '{':
+return 0;
+case '+':
+case '-':
+return 1;
+case '*':
+case '/':
+return 2;
+}
+return 0;
+}
+
+void ExprCell::parse_expression() {
+Stack stack;
+// 수식 전체를 () 로 둘러 사서 exp_vec 에 남아있는 연산자들이 push 되게
+// 해줍니다.
+data.insert(0, "(");
+data.push_back(')');
+for (int i = 0; i < data.length(); i++) {
+if (isalpha(data[i])) {
+exp_vec.push_back(data.substr(i, 2));
+i++;
+} else if (isdigit(data[i])) {
+exp_vec.push_back(data.substr(i, 1));
+} else if (data[i] == '(' || data[i] == '[' ||
+data[i] == '{') { // Parenthesis
+stack.push(data.substr(i, 1));
+} else if (data[i] == ')' || data[i] == ']' || data[i] == '}') {
+string t = stack.pop();
+while (t != "(" && t != "[" && t != "{") {
+exp_vec.push_back(t);
+t = stack.pop();
+}
+} else if (data[i] == '+' || data[i] == '-' || data[i] == '*' ||
+data[i] == '/') {
+while (!stack.is_empty() &&
+precedence(stack.peek()[0]) >= precedence(data[i])) {
+exp_vec.push_back(stack.pop());
+}
+stack.push(data.substr(i, 1));
+}
+}
+}
 
 // --- Table 구현 ---
 Table::Table(int max_row_size, int max_col_size) : max_row_size(max_row_size), max_col_size(max_col_size) {
@@ -193,26 +316,97 @@ string CSVTable::print_table() {
     return s;
 }
 
-// 연산자 오버로딩 (friend 혹은 전역)
-std::ostream& operator<<(std::ostream& o, Table& table) {
-    o << table.print_table();
-    return o;
+Excel::Excel(int max_row, int max_col, int choice = 0){
+    switch(choice){
+        case 0:
+            current_table = new TxtTable(max_row, max_col);
+            break;
+        case 1:
+            current_table = new CSVTable(max_row, max_col);
+            break;
+        default:
+            current_table = new HtmlTable(max_row, max_col); 
+    }
 }
 
+int Excel::parse_user_input(string s){
+    int next = 0;
+    string command = "";
+    for(int i=0;i<s.length();i++){
+        if(s[i]==' '){
+            command = s.substr(0,i);
+            next = i+1;
+            break;
+        }
+        else if(i==s.length()-1){
+        command = s.substr(0,i+1);
+        next = i+1;
+        break;
+    }
+}
+
+string to = "";
+for (int i = next; i < s.length(); i++) {
+if (s[i] == ' ' || i == s.length() - 1) {
+to = s.substr(next, i - next);
+next = i + 1;
+break;
+} else if (i == s.length() - 1) {
+to = s.substr(0, i + 1);
+next = i + 1;
+break;
+}
+}
+
+int col = to[0]-'A';
+int row = atoi(to.c_str()+1)-1;
+
+string rest = s.substr(next);
+
+if (command == "sets") {
+current_table->reg_cell(new StringCell(rest, row, col, current_table), row,
+col);
+} else if (command == "setn") {
+current_table->reg_cell(
+new NumberCell(atoi(rest.c_str()), row, col, current_table), row, col);
+} else if (command == "setd") {
+current_table->reg_cell(new DateCell(rest, row, col, current_table), row,
+col);
+} else if (command == "sete") {
+current_table->reg_cell(new ExprCell(rest, row, col, current_table), row,
+col);
+} else if (command == "out") {
+ofstream out(to);
+out << *current_table;
+std::cout << to << " 에 내용이 저장되었습니다" << std::endl;
+} else if (command == "exit") {
+return 0;
+}
+return 1;
+}
+
+void Excel::command_line() {
+string s;
+std::getline(cin, s);
+while (parse_user_input(s)) {
+std::cout << *current_table << std::endl << ">> ";
+getline(cin, s);
+}
+
+
+}
 } // namespace MyExcel 끝
 
 // --- 메인 함수 (범위 및 타입 오류 수정) ---
 int main() {
-    MyExcel::TxtTable table(5, 5);
-    std::ofstream out("test.txt");
-
-    // MyExcel:: 을 붙여 네임스페이스 내의 Cell을 명시함
-    table.reg_cell(new MyExcel::Cell("Hello~", 0, 0, &table), 0, 0);
-    table.reg_cell(new MyExcel::Cell("C++", 0, 1, &table), 0, 1);
-    table.reg_cell(new MyExcel::Cell("Programming", 1, 1, &table), 1, 1);
-
-    std::cout << std::endl << table;
-    out << table;
-    
-    return 0;
+std::cout
+<< "테이블 (타입) (최대 행 크기) (최대 열 크기) 를 순서대로 입력해주세요"
+<< std::endl;
+std::cout << "* 참고 * " << std::endl;
+std::cout << "1 : 텍스트 테이블, 2 : CSV 테이블, 3 : HTML 테이블"
+<< std::endl;
+int type, max_row, max_col;
+std::cin >> type >> max_row >> max_col;
+MyExcel::Excel m(max_row, max_col, type - 1);
+m.command_line();
 }
